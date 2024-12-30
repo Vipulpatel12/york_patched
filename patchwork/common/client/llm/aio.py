@@ -13,25 +13,16 @@ from patchwork.logger import logger
 
 class AioLlmClient(LlmClient):
     def __init__(self, *clients: LlmClient):
-        logger.info(f'clients init {clients}')
         self.__original_clients = clients
         self.__clients = []
         self.__supported_models = set()
-        logger.info(f'init client {clients}')
         for client in clients:
-            logger.info('ho rha hai')
             try:
-
-                logger.info(f'client aavi gyo {client.get_models()}')
                 self.__supported_models.update(client.get_models())
-                logger.info('model support')
                 self.__clients.append(client)
             except Exception:
                 pass
-        logger.info(f'clientttt {self.__supported_models}')
-
-        logger.info(f'clientttt {self.__clients}')
-
+        
     def get_models(self) -> set[str]:
         return self.__supported_models
 
@@ -68,19 +59,11 @@ class AioLlmClient(LlmClient):
         top_logprobs: Optional[int] | NotGiven = NOT_GIVEN,
         top_p: Optional[float] | NotGiven = NOT_GIVEN,
     ) -> ChatCompletion:
-        logger.info('done 12')
-        logger.info(f'self.__clients:  {self.__clients}')
-        logger.info(f'for loop model {model}')
-        logger.info(f'self.__original_clients {self.__original_clients}')
             
         for client in self.__clients:
             try:
 
-                logger.info(f'client:')
                 if client.is_model_supported(model):
-                    logger.info(f"Using {client.__class__.__name__} for model {model}")
-                    
-                    logger.debug(f"Using {client.__class__.__name__} for model {model}")
                     
                     return client.chat_completion(
                         messages,
@@ -98,7 +81,7 @@ class AioLlmClient(LlmClient):
                         top_p,
                     )
                 else:
-                    logger.info(f"Model {model} is xyz")
+                    continue
             except Exception as e:
                 logger.warn(f"Failed to connect to")
         client_names = [client.__class__.__name__ for client in self.__original_clients]

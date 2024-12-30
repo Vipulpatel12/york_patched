@@ -1,0 +1,10 @@
+# Include the README.md file
+include README.md
+
+# Include all files in the york_patched directory
+recursive-include york_patched *
+
+# Optional: Include other non-Python files (e.g., .txt, .json, etc.)
+recursive-include york_patched *.txt
+recursive-include york_patched *.json
+recursive-include york_patched *.yml

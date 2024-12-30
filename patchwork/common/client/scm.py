@@ -677,7 +677,6 @@ class GerritClient(ScmPlatformClientProtocol):
 
     def test(self) -> bool:
         try:
-            logger.info('*********** done 1 *************')
             self.gerrit.version
             return True
         except Exception as e:
@@ -685,14 +684,10 @@ class GerritClient(ScmPlatformClientProtocol):
             return False
 
     def set_url(self, url: str) -> None:
-        logger.info('*********** done 3 *************')
-            
         self._url = url
         self._client.set_url(url)
 
     def get_slug_and_id_from_url(self, url: str) -> Tuple[str, int] | None:
-        logger.info('*********** done 2 *************')
-            
         # Gerrit URLs generally follow the format https://<hostname>/#/c/<project>/+<change_id>
         url_parts = url.split("/")
         if len(url_parts) < 5:
@@ -709,15 +704,11 @@ class GerritClient(ScmPlatformClientProtocol):
         return project, change_id
 
     def find_issue_by_url(self, url: str) -> IssueText | None:
-        logger.info('*********** done 4 *************')
-            
         project, change_id = self.get_slug_and_id_from_url(url)
         return self.find_issue_by_id(project, change_id)
 
     def find_issue_by_id(self, project: str, change_id: int) -> IssueText | None:
         try:
-            logger.info('*********** done 4 *************')
-            
             change = self.gerrit.get_change(project, change_id)
             return dict(
                 title=change.subject,
@@ -729,14 +720,10 @@ class GerritClient(ScmPlatformClientProtocol):
             return None
 
     def get_pr_by_url(self, url: str) -> PullRequestProtocol | None:
-        logger.info('*********** done 5 *************')
-            
         project, change_id = self.get_slug_and_id_from_url(url)
         return self.find_pr_by_id(project, change_id)
 
     def find_pr_by_id(self, project: str, change_id: int) -> PullRequestProtocol | None:
-        logger.info('*********** done 6 *************')
-            
         try:
             change = self.gerrit.get_change(project, change_id)
             return GerritPullRequest(change)
@@ -753,10 +740,8 @@ class GerritClient(ScmPlatformClientProtocol):
         limit: int | None = None,
     ) -> list[GerritPullRequest]:
         
-        logger.info(f'*********** done 7 {slug}*************')
         # repo = self.gerrit.get_repo(slug)
         repo = self.gerrit.get_endpoint_url(slug)
-        logger.info(f'******* {repo}')
         kwargs_list = dict(state=[None], target_branch=[None], source_branch=[None])
 
         if state is not None:
@@ -771,7 +756,6 @@ class GerritClient(ScmPlatformClientProtocol):
         for instance in itertools.product(*kwargs_list.values()):
             kwargs = dict(((key, value) for key, value in zip(keys, instance) if value is not None))
             pages=repo.remote.get_pulls(**kwargs)
-            logger.info(f'pull repo {pages}')
             # pages = repo.get_pulls(**kwargs)
             page_list.append(pages)
 
@@ -796,7 +780,6 @@ class GerritClient(ScmPlatformClientProtocol):
         original_branch: str,
         feature_branch: str,
     ) -> PullRequestProtocol:
-        logger.info('*********** done 8 *************')
             
         try:
             change = self.gerrit.create_change(
@@ -814,8 +797,7 @@ class GerritClient(ScmPlatformClientProtocol):
     def create_issue_comment(
         self, project: str, issue_text: str, title: str | None = None, issue_id: int | None = None
     ) -> str:
-        logger.info ('*********** done 10 *************')
-            
+           
         try:
             change = self.gerrit.changes(project, issue_id)
             comment = change.add_comment(message=issue_text)

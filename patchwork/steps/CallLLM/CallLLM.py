@@ -62,11 +62,7 @@ class CallLLM(Step, input_class=CallLLMInputs, output_class=CallLLMOutputs):
         openai_key = inputs.get("openai_api_key") or os.environ.get("OPENAI_API_KEY")
         if openai_key is not None:
             client_args = {key[len("client_") :]: value for key, value in inputs.items() if key.startswith("client_")}
-            logger.info(f'openai_key {openai_key} client_args {client_args}')
-            # openai_key='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'
-            logger.info(f'openai_key {openai_key}')
             client = OpenAiLlmClient(openai_key, **client_args)
-            logger.info(f'openai key client {client}')
             clients.append(client)
 
         google_key = inputs.get("google_api_key")
@@ -89,7 +85,6 @@ class CallLLM(Step, input_class=CallLLMInputs, output_class=CallLLMOutputs):
                 "\n"
                 "If you are using an OpenAI API Key, please set `--openai_api_key=<token>`.\n"
             )
-        logger.info(f'clients {clients}')
         self.client = AioLlmClient(*clients)
 
     def __persist_to_file(self, contents):
