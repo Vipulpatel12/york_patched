@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-import pdb
+
 import git
 from git import Repo
 from typing_extensions import Generator
@@ -15,9 +15,9 @@ from patchwork.step import Step, StepStatus
 
 @contextlib.contextmanager
 def transitioning_branches(
-    repo: Repo, branch_prefix: str, branch_suffix: str = "", force: bool = True, enabled: bool = False
+    repo: Repo, branch_prefix: str, branch_suffix: str = "", force: bool = True, enabled: bool = True
 ) -> Generator[tuple[str, str], None, None]:
-    if enabled:
+    if not enabled:
         from_branch = get_current_branch(repo)
         from_branch_name = from_branch.name if not from_branch.is_remote() else from_branch.remote_head
         yield from_branch_name, from_branch_name
@@ -26,15 +26,14 @@ def transitioning_branches(
     from_branch = get_current_branch(repo)
     from_branch_name = from_branch.name if not from_branch.is_remote() else from_branch.remote_head
     next_branch_name = f"{branch_prefix}{from_branch_name}{branch_suffix}"
-    # next_branch_name = f"t{from_branch_name}{branch_suffix}"
     if next_branch_name in repo.heads and not force:
         raise ValueError(f'Local Branch "{next_branch_name}" already exists.')
     if next_branch_name in repo.remote("origin").refs and not force:
         raise ValueError(f'Remote Branch "{next_branch_name}" already exists.')
 
-    
+    logger.info(f'Creating new branch "{next_branch_name}".')
     to_branch = repo.create_head(next_branch_name, force=force)
-    
+
     try:
         to_branch.checkout()
         yield from_branch_name, next_branch_name
@@ -94,37 +93,21 @@ def commit_with_msg(repo: Repo, msg: str):
     ephemeral = _EphemeralGitConfig(repo)
     ephemeral.set_value("user", "name", "patched.codes[bot]")
     ephemeral.set_value("user", "email", "298395+patched.codes[bot]@users.noreply.github.com")
-    repo.git.add(".")
-    
-    # message_and_diff='hello'
-    # import hashlib
-    # change_id_hash = hashlib.sha1(message_and_diff.encode('utf-8')).hexdigest()
-    
-    # with ephemeral.context():
-    #     repo.git.commit(
-    #         # "--no-verify",
-    #         "-m",
-    #         "DONEEEE"
-            
-    #     )
-        # repo.git.commit(
-        #     "-m",
-        #     "done",
-        # )
-        # repo.git.commit(
-        #     "--author",
-        #     "patched.codes[bot]<298395+patched.codes[bot]@users.noreply.github.com>",
-        #     "-m",
-        #     'done',
-        #     'Change-Id:{change_id_hash}'.format(change_id_hash=change_id_hash),
-        #     '--amend',
-        # )
-    
+
+    with ephemeral.context():
+        repo.git.commit(
+            "--no-verify",
+            "--author",
+            "patched.codes[bot]<298395+patched.codes[bot]@users.noreply.github.com>",
+            "-m",
+            msg,
+        )
+
+
 class CommitChanges(Step):
     required_keys = {"modified_code_files"}
 
     def __init__(self, inputs: dict):
-        
         super().__init__(inputs)
         if not all(key in inputs.keys() for key in self.required_keys):
             raise ValueError(f'Missing required data: "{self.required_keys}"')
@@ -143,9 +126,8 @@ class CommitChanges(Step):
             raise ValueError("Both branch_prefix and branch_suffix cannot be empty")
 
     def __get_repo_tracked_modified_files(self, repo: Repo) -> set[Path]:
-        
         repo_dir_path = Path(repo.working_tree_dir)
-        path_filter = PathFilter(repo.working_tree_dir)
+        path_filter = PathFilter(base_path=repo.working_tree_dir)
 
         repo_changed_files = set()
         for item in repo.index.diff(None):
@@ -186,9 +168,8 @@ class CommitChanges(Step):
         ):
             for modified_file in true_modified_files:
                 repo.git.add(modified_file)
-                commit_with_msg(repo, f"Patched {modified_file}")
-            
-            
+                commit_with_msg(repo, f"Patched {modified_file.relative_to(repo_dir_path)}")
+
             return dict(
                 base_branch=from_branch,
                 target_branch=to_branch,

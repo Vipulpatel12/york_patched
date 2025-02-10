@@ -5,6 +5,7 @@ import git
 from patchwork.common.client.scm import (
     GithubClient,
     GitlabClient,
+    GerritClient,
     ScmPlatformClientProtocol,
     get_slug_from_remote_url,
 )

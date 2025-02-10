@@ -4,7 +4,7 @@ from patchwork.steps.CommitChanges.CommitChanges import CommitChanges
 from patchwork.steps.CreatePR.CreatePR import CreatePR
 from patchwork.steps.PR.typed import PRInputs, PROutputs
 from patchwork.steps.PreparePR.PreparePR import PreparePR
-import logging
+
 
 class PR(Step, input_class=PRInputs, output_class=PROutputs):
     def __init__(self, inputs):
@@ -47,7 +47,6 @@ class PR(Step, input_class=PRInputs, output_class=PROutputs):
 
     def run(self):
         commit_changes = CommitChanges(self.inputs)
-        logging.info('commit changes ho gyas')
         commit_changes_output = commit_changes.run()
         self.set_status(commit_changes.status, commit_changes.status_message)
 

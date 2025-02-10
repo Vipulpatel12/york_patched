@@ -7,7 +7,9 @@ from itertools import islice
 from pathlib import Path
 from pprint import pformat
 from textwrap import indent
+
 from rich.markup import escape
+
 from patchwork.common.client.llm.aio import AioLlmClient
 from patchwork.common.client.llm.anthropic import AnthropicLlmClient
 from patchwork.common.client.llm.google import GoogleLlmClient
@@ -59,6 +61,7 @@ class CallLLM(Step, input_class=CallLLMInputs, output_class=CallLLMOutputs):
         if patched_key is not None:
             client = OpenAiLlmClient(patched_key, DEFAULT_PATCH_URL)
             clients.append(client)
+
         openai_key = inputs.get("openai_api_key") or os.environ.get("OPENAI_API_KEY")
         if openai_key is not None:
             client_args = {key[len("client_") :]: value for key, value in inputs.items() if key.startswith("client_")}
@@ -85,6 +88,7 @@ class CallLLM(Step, input_class=CallLLMInputs, output_class=CallLLMOutputs):
                 "\n"
                 "If you are using an OpenAI API Key, please set `--openai_api_key=<token>`.\n"
             )
+
         self.client = AioLlmClient(*clients)
 
     def __persist_to_file(self, contents):

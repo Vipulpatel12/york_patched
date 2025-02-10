@@ -4,15 +4,14 @@ import git
 from git.exc import GitCommandError
 
 from patchwork.common.client.scm import (
+    AzureDevopsClient,
     GithubClient,
     GitlabClient,
-    GerritClient,
     ScmPlatformClientProtocol,
     get_slug_from_remote_url,
 )
 from patchwork.logger import logger
 from patchwork.step import Step, StepStatus
-from git import Repo, GitCommandError
 
 
 class CreatePR(Step):
@@ -24,6 +23,7 @@ class CreatePR(Step):
             raise ValueError(f'Missing required data: "{self.required_keys}"')
 
         self.original_remote_name = "origin"
+
         self.enabled = not bool(inputs.get("disable_pr", False))
         if self.enabled:
             self.scm_client = None
@@ -31,13 +31,12 @@ class CreatePR(Step):
                 self.scm_client = GithubClient(inputs["github_api_key"])
             elif "gitlab_api_key" in inputs.keys():
                 self.scm_client = GitlabClient(inputs["gitlab_api_key"])
-            elif "gerrit_http_password" in inputs.keys():
-                self.scm_client = GerritClient(inputs["gerrit_username"],inputs["gerrit_http_password"])
-            
+            elif "azuredevops_api_key" in inputs.keys():
+                self.scm_client = AzureDevopsClient(inputs["azuredevops_api_key"])
             else:
                 logger.warning(
-                    f'Missing required input data: "github_api_key" or "gitlab_api_key",'
-                    f" PR creation will be disabled."
+                    f'Missing required input data: "github_api_key", "gitlab_api_key" or "azuredevops_api_key". '
+                    f"PR creation will be disabled."
                 )
                 self.enabled = False
 
@@ -67,13 +66,12 @@ class CreatePR(Step):
         push_args = ["--set-upstream", self.original_remote_name, self.target_branch]
         if self.force:
             push_args.insert(0, "--force")
-        # is_push_success = push(repo, push_args)
-        is_push_success = push_to_gerrit(repo=repo,branch='main',gerrit_ref='refs/for/main')
+
+        is_push_success = push(repo, push_args)
+        logger.debug(f"Pushed to {self.original_remote_name}/{self.target_branch}")
         return is_push_success
 
     def run(self) -> dict:
-        # remote_repo_url = '/plugins/gitiles/testing-gerrit/.git'
-        # repo = git.Repo(remote_repo_url,search_parent_directories=True)
         repo = git.Repo(Path.cwd(), search_parent_directories=True)
         if not self.enabled:
             if (
@@ -91,6 +89,7 @@ class CreatePR(Step):
             self.set_status(StepStatus.WARNING, "PR creation is disabled. Skipping PR creation.")
             logger.warning(f"PR creation is disabled. Skipping PR creation.")
             return dict()
+
         is_push_success = self.__push(repo)
         if not is_push_success:
             self.set_status(
@@ -98,61 +97,28 @@ class CreatePR(Step):
                 f"Failed to push to {self.original_remote_name}/{self.target_branch}. Skipping PR creation.",
             )
             return dict()
-        logger.info('code success fully pushed!!!')
-        return dict()
 
+        logger.info(f"Creating PR from {self.base_branch} to {self.target_branch}")
+        original_remote_url = repo.remotes[self.original_remote_name].url
+        repo_slug = get_slug_from_remote_url(original_remote_url)
+        url = create_pr(
+            repo_slug=repo_slug,
+            title=self.title,
+            body=self.pr_body,
+            base_branch_name=self.base_branch,
+            target_branch_name=self.target_branch,
+            scm_client=self.scm_client,
+            force=self.force,
+        )
 
+        logger.info(f"[green]PR created at [link={url}]{url}[/link][/]", extra={"markup": True})
+        return {"pr_url": url}
 
-def push_to_gerrit(repo: Repo, branch: str, gerrit_ref: str = None, force: bool = False) -> bool:
-    """
-    Push changes to a Gerrit server for code review.
-
-    Args:
-        repo (git.Repo): The git repository instance.
-        branch (str): The local branch to push.
-        gerrit_ref (str): The Gerrit refspec, e.g., 'refs/for/branch_name'. If None, 'refs/for/<branch>' is used.
-        force (bool): Force push the changes.
-
-    Returns:
-        bool: True if the push succeeds, False otherwise.
-    """ 
-    if gerrit_ref is None:
-        gerrit_ref = f"refs/for/{branch}"  # Default Gerrit refspec
-    push_args = [f"HEAD:{gerrit_ref}"]
-    if force:
-        push_args.insert(0, "--force")
-    
-    try:
-        with repo.git.custom_environment(GIT_TERMINAL_PROMPT="0"):
-            '-main'
-            # repo.git.rebase('generatereadme-main')
-            # repo.git.push("origin", *push_args)
-        return True
-    except GitCommandError as e:
-        logger.error("Git command failed with1:")
-        logger.error(e.stdout)
-        logger.error(e.stderr)
-
-    # Retry logic using `logger.freeze` if available
-    freeze_func = getattr(logger, "freeze", None)
-    if freeze_func:
-        try:
-            with logger.freeze():
-                repo.git.push("origin", *push_args)
-            logger.info("Push to Gerrit successful after retry.")
-            return True
-        except GitCommandError as e:
-            logger.error("Git retry failed with:")
-            logger.error(e.stdout)
-            logger.error(e.stderr)
-
-    return False
 
 def push(repo: git.Repo, args) -> bool:
     try:
         with repo.git.custom_environment(GIT_TERMINAL_PROMPT="0"):
             repo.git.push(*args)
-            logger.info("Push to Gerrit successful.")
         return True
     except GitCommandError as e:
         logger.error("Git command failed with:")

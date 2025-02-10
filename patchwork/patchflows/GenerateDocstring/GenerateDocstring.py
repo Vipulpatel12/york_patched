@@ -10,13 +10,9 @@ from patchwork.common.utils.step_typing import validate_steps_with_inputs
 from patchwork.step import Step
 from patchwork.steps import (
     LLM,
-    PR,
     CallLLM,
-    CommitChanges,
-    CreatePR,
     ExtractModelResponse,
     ModifyCode,
-    PreparePR,
     PreparePrompt,
 )
 from patchwork.steps.ExtractCodeMethodForCommentContexts.ExtractCodeMethodForCommentContexts import (
@@ -31,11 +27,11 @@ class GenerateDocstring(Step):
     def __init__(self, inputs: dict):
         PatchflowProgressBar(self).register_steps(
             CallLLM,
-            CommitChanges,
-            CreatePR,
+            # CommitChanges,
+            # CreatePR,
             ExtractModelResponse,
             ModifyCode,
-            PreparePR,
+            # PreparePR,
             PreparePrompt,
         )
         final_inputs = yaml.safe_load(_DEFAULT_INPUT_FILE.read_text())
@@ -54,7 +50,7 @@ class GenerateDocstring(Step):
         final_inputs["force_code_contexts"] = final_inputs.get("rewrite_existing", False)
 
         validate_steps_with_inputs(
-            set(final_inputs.keys()).union({"prompt_values"}), ExtractCodeMethodForCommentContexts, LLM, ModifyCode, PR
+            set(final_inputs.keys()).union({"prompt_values"}), ExtractCodeMethodForCommentContexts, LLM, ModifyCode
         )
 
         self.inputs: dict[str, Any] = final_inputs
@@ -78,7 +74,7 @@ class GenerateDocstring(Step):
         self.inputs[
             "pr_header"
         ] = f'This pull request from patchwork fixes {len(self.inputs["prompt_values"])} docstrings.'
-        outputs = PR(self.inputs).run()
-        self.inputs.update(outputs)
+        # outputs = PR(self.inputs).run()
+        # self.inputs.update(outputs)
 
         return self.inputs
